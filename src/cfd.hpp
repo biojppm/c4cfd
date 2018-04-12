@@ -9,6 +9,7 @@
  * */
 
 #include "c4/config.hpp"
+#include "c4/memory_resource.hpp"
 
 // utilities to tell the compiler the memory is SIMD-aligned
 namespace c4 {
@@ -80,8 +81,8 @@ struct memblock
     I    m_size;
     bool m_owner;
 
-    inline T  $$ operator[] (I i)       { C4_ASSERT(i >= 0 && i < m_size); return val[elm]; }
-    inline T c$$ operator[] (I i) const { C4_ASSERT(i >= 0 && i < m_size); return val[elm]; }
+    inline T  $$ operator[] (I i)       { C4_ASSERT(i >= 0 && i < m_size); return m_val[i]; }
+    inline T c$$ operator[] (I i) const { C4_ASSERT(i >= 0 && i < m_size); return m_val[i]; }
 
     memblock() : m_val(nullptr), m_size(0), m_owner(false) {}
     memblock(I sz) : memblock() { resize(sz); }
@@ -94,7 +95,7 @@ struct memblock
     {
         if(m_owner)
         {
-            c4::afree(m_val, simd_alignment);
+            c4::afree(m_val);
             m_val = nullptr;
             m_owner = false;
         }
@@ -127,36 +128,39 @@ struct memblock
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< typename I, I N >
+namespace detail {
+
+template< typename I, size_t N >
 struct mat_addr_indices;
 
 template< typename I >
-struct mat_addr_indices<I, 1>;
+struct mat_addr_indices<I, 1>
 {
     using mpos = I;
-    constexpr const I    s_sym2lin[1][1] = {{0}};
-    constexpr const mpos s_lin2sym_rm[1] = {0};
-    constexpr const mpos s_lin2sym_cm[1] = {0};
+    static constexpr const I    s_sym2lin[1][1] = {{0}};
+    static constexpr const mpos s_lin2sym_rm[1] = {0};
+    static constexpr const mpos s_lin2sym_cm[1] = {0};
 };
 
 template< typename I >
-struct mat_addr_indices<I, 2>;
+struct mat_addr_indices<I, 2>
 {
     using mpos = vec<2,I>;
-    constexpr const I    s_sym2lin[2][2] = {{0,1},{1,2}};
-    constexpr const mpos s_lin2sym_rm[3] = {{0,0},{0,1},{1,1}};
-    constexpr const mpos s_lin2sym_cm[3] = {{0,0},{1,0},{1,1}};
+    static constexpr const I    s_sym2lin[2][2] = {{0,1},{1,2}};
+    static constexpr const mpos s_lin2sym_rm[3] = {{0,0},{0,1},{1,1}};
+    static constexpr const mpos s_lin2sym_cm[3] = {{0,0},{1,0},{1,1}};
 };
 
 template< typename I >
-struct mat_addr_indices<I, 3>;
+struct mat_addr_indices<I, 3>
 {
     using mpos = vec<2,I>;
-
-    constexpr const I    s_sym2lin[3][3] = {{0,1,2}, {1,3,4}, {2,4,5}};
-    constexpr const mpos s_lin2sym_rm[6] = {{0,0},{0,1},{0,2},{1,1},{1,2},{2,2}};
-    constexpr const mpos s_lin2sym_cm[6] = {{0,0},{1,0},{2,0},{1,1},{2,1},{2,2}};
+    static constexpr const I    s_sym2lin[3][3] = {{0,1,2}, {1,3,4}, {2,4,5}};
+    static constexpr const mpos s_lin2sym_rm[6] = {{0,0},{0,1},{0,2},{1,1},{1,2},{2,2}};
+    static constexpr const mpos s_lin2sym_cm[6] = {{0,0},{1,0},{2,0},{1,1},{2,1},{2,2}};
 };
+
+} // namespace detail
 
 
 /** dense matrix addressing
@@ -194,24 +198,27 @@ inline I sym2lin(I i, I j)
 {
     C4_ASSERT(i < 3);
     C4_ASSERT(j < 3);
-    return mat_addr_indices<I,N>::s_sym2lin[i][j];
+    return detail::mat_addr_indices<I,N>::s_sym2lin[i][j];
 }
 
+template< typename I, I N >
 inline I sym2lin(vec<2,I> i)
 {
-    return sym2lin(i.x, i.y);
+    return sym2lin<I,N>(i.x, i.y);
 }
 
+template< typename I, I N >
 inline vec<2,I> lin2sym_rm(I p)
 {
     C4_ASSERT(p < 6);
-    return mat_addr_indices<I,N>::s_lin2sym_rm[p];
+    return detail::mat_addr_indices<I,N>::s_lin2sym_rm[p];
 }
 
+template< typename I, I N >
 inline vec<2,I> lin2sym_cm(I p)
 {
     C4_ASSERT(p < 6);
-    return mat_addr_indices<I,N>::s_lin2sym_cm[p];
+    return detail::mat_addr_indices<I,N>::s_lin2sym_cm[p];
 }
 
 
@@ -271,28 +278,28 @@ struct basic_var;
 
 
 /** scalar */
-template< typename T=double, typename I=size_t >
+template< typename T, typename I >
 struct basic_var<1,T,I> : public memblock<T,I>
 {
     using mpos = vec<1,I>;
 
-    inline T  $$ operator() (I elm)       { return val[elm]; }
-    inline T c$$ operator() (I elm) const { return val[elm]; }
+    inline T  $$ operator() (I elm)       { return this->m_val[elm]; }
+    inline T c$$ operator() (I elm) const { return this->m_val[elm]; }
 
-    inline T  $$ operator() (I elm, mpos dim)       { C4_UNUSED(dim); C4_ASSERT(dim.x == 0); return val[elm]; }
-    inline T c$$ operator() (I elm, mpos dim) const { C4_UNUSED(dim); C4_ASSERT(dim.x == 0); return val[elm]; }
+    inline T  $$ operator() (I elm, mpos dim)       { C4_UNUSED(dim); C4_ASSERT(dim.x == 0); return this->m_val[elm]; }
+    inline T c$$ operator() (I elm, mpos dim) const { C4_UNUSED(dim); C4_ASSERT(dim.x == 0); return this->m_val[elm]; }
 };
 
 /** non-scalar */
-template< int N, typename T=double, typename I=size_t >
-struct basic_var<N,T,I>
+template< int N, typename T, typename I >
+struct basic_var
 {
-    memblock<T,I> val[N];
+    memblock<T,I> m_val[N];
 
     using mpos = vec<1,I>;
 
-    inline T  $$ operator() (I elm, mpos dim)       { C4_UNUSED(dim); C4_ASSERT(dim >= 0 && dim.x < N); return val[dim][elm]; }
-    inline T c$$ operator() (I elm, mpos dim) const { C4_UNUSED(dim); C4_ASSERT(dim >= 0 && dim.x < N); return val[dim][elm]; }
+    inline T  $$ operator() (I elm, mpos dim)       { C4_UNUSED(dim); C4_ASSERT(dim >= 0 && dim.x < N); return this->m_val[dim][elm]; }
+    inline T c$$ operator() (I elm, mpos dim) const { C4_UNUSED(dim); C4_ASSERT(dim >= 0 && dim.x < N); return this->m_val[dim][elm]; }
 };
 
 
@@ -301,9 +308,9 @@ struct basic_var<N,T,I>
 //-----------------------------------------------------------------------------
 
 #define C4_STORAGE_TYPES()                              \
-    constexpr const num_dims = Storage::num_dims;       \
     using T = typename Storage::value_type;             \
     using I = typename Storage::value_type;             \
+    static constexpr const I num_dims = Storage::num_dims;  \
     using value_type = typename Storage::value_type;    \
     using index_type = typename Storage::index_type;    \
     using scalar = typename Storage::scalar;            \
@@ -316,38 +323,45 @@ struct basic_var<N,T,I>
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< int D, typename T=double, typename I=size_t, template< typename, I > AddrTpl=row_major >
+template< int D, typename T=double, typename I=size_t, template< typename, I > class AddrTpl=row_major >
 struct aos
 {
+    static constexpr const I num_dims = D;
+
+    using value_type = T;
+    using index_type = I;
+
     using mpos = vec<D,I>;
     using addr = AddrTpl<I,D>;
 
     struct scalar : public _var<T,I>
     {
+        enum : int { N = 1 };
         basic_var<1, T, I> val;
 
-        inline T  $$ operator[] (I elm)       { return val(elm); }
-        inline T c$$ operator[] (I elm) const { return val(elm); }
+        inline T  $$ operator() (I elm)       { return val(elm); }
+        inline T c$$ operator() (I elm) const { return val(elm); }
 
-        inline T  $$ operator[] (I elm, I dim)       { return val(elm); }
-        inline T c$$ operator[] (I elm, I dim) const { return val(elm); }
+        inline T  $$ operator() (I elm, I dim)       { C4_XASSERT(dim == 0); return val(elm); }
+        inline T c$$ operator() (I elm, I dim) const { C4_XASSERT(dim == 0); return val(elm); }
 
-        inline T  $$ operator[] (I elm, mpos dim)       { return val(elm); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm); }
+        inline T  $$ operator() (I elm, mpos dim)       { C4_XASSERT(dim.x == 0); return val(elm); }
+        inline T c$$ operator() (I elm, mpos dim) const { C4_XASSERT(dim.x == 0); return val(elm); }
     };
 
     struct vector : public _var<T, I>
     {
-        basic_var<D, T, I> val;
+        enum : int { N = D };
+        basic_var<1, T, I> val;
 
         using storage = basic_var<D,T,I>;
         using mpos = typename storage::mpos;
 
-        inline T  $$ operator[] (I elm, I dim)       { return val(elm * D + dim); }
-        inline T c$$ operator[] (I elm, I dim) const { return val(elm * D + dim); }
+        inline T  $$ operator() (I elm, I dim)       { return val(elm * D + dim); }
+        inline T c$$ operator() (I elm, I dim) const { return val(elm * D + dim); }
 
-        inline T c$$ operator[] (I elm, mpos dim)       { return val(elm * D + dim); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm * D + dim); }
+        inline T c$$ operator() (I elm, mpos dim)       { return val(elm * D + dim); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm * D + dim); }
     };
 
     struct tensor : public _var<T, I>
@@ -358,11 +372,11 @@ struct aos
         using storage = basic_var<D*D, T, I>;
         using mpos = typename storage::mpos;
 
-        inline T  $$ operator[] (I elm, I dim1, I dim2)       { return val(elm * N + addr::mpos2lin(dim1, dim2); }
-        inline T c$$ operator[] (I elm, I dim1, I dim2) const { return val(elm * N + addr::mpos2lin(dim1, dim2); }
+        inline T  $$ operator() (I elm, I dim1, I dim2)       { return val(elm * N + addr::mpos2lin(dim1, dim2)); }
+        inline T c$$ operator() (I elm, I dim1, I dim2) const { return val(elm * N + addr::mpos2lin(dim1, dim2)); }
 
-        inline T  $$ operator[] (I elm, mpos dim)       { return val(elm * N + addr::mpos2lin(dim); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm * N + addr::mpos2lin(dim); }
+        inline T  $$ operator() (I elm, mpos dim)       { return val(elm * N + addr::mpos2lin(dim)); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm * N + addr::mpos2lin(dim)); }
     };
 
     struct symtensor : public _var<T, I>
@@ -373,11 +387,11 @@ struct aos
         using storage = basic_var<1, T, I>;
         using mpos = typename storage::mpos;
 
-        inline T  $$ operator[] (I elm, I dim1, I dim2)       { return val(elm * N + addr::mpos2lin_sym(dim1, dim2); }
-        inline T c$$ operator[] (I elm, I dim1, I dim2) const { return val(elm * N + addr::mpos2lin_sym(dim1, dim2); }
+        inline T  $$ operator() (I elm, I dim1, I dim2)       { return val(elm * N + addr::mpos2lin_sym(dim1, dim2)); }
+        inline T c$$ operator() (I elm, I dim1, I dim2) const { return val(elm * N + addr::mpos2lin_sym(dim1, dim2)); }
 
-        inline T  $$ operator[] (I elm, mpos dim)       { return val(elm * N + addr::mpos2lin_sym(dim); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm * N + addr::mpos2lin_sym(dim); }
+        inline T  $$ operator() (I elm, mpos dim)       { return val(elm * N + addr::mpos2lin_sym(dim)); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm * N + addr::mpos2lin_sym(dim)); }
     };
 };
 
@@ -387,10 +401,10 @@ struct aos
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< int D, typename T=double, typename I=size_t, template< typename, I > AddrTpl=row_major >
+template< int D, typename T=double, typename I=size_t, template< typename, I > class AddrTpl=row_major >
 struct soa
 {
-    constexpr const num_dims = D;
+    static constexpr const I num_dims = D;
 
     using value_type = T;
     using index_type = I;
@@ -400,29 +414,31 @@ struct soa
 
     struct scalar : public _var<T, I>
     {
+        enum : int { N = 1 };
         basic_var<1, T, I> val;
 
-        inline T  $$ operator[] (I elm)       { return val(elm); }
-        inline T c$$ operator[] (I elm) const { return val(elm); }
+        inline T  $$ operator() (I elm)       { return val(elm); }
+        inline T c$$ operator() (I elm) const { return val(elm); }
 
-        inline T  $$ operator[] (I elm, I dim)       { return val(elm); }
-        inline T c$$ operator[] (I elm, I dim) const { return val(elm); }
+        inline T  $$ operator() (I elm, I dim)       { return val(elm); }
+        inline T c$$ operator() (I elm, I dim) const { return val(elm); }
 
-        inline T  $$ operator[] (I elm, mpos dim)       { return val(elm); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm); }
+        inline T  $$ operator() (I elm, mpos dim)       { return val(elm); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm); }
     };
 
     struct vector : public _var<T, I>
     {
+        enum : int { N = D };
         basic_var<D, T, I> val;
 
         using storage = basic_var<D,T,I>;
 
-        inline T  $$ operator[] (I elm, I dim)       { return val(elm, dim); }
-        inline T c$$ operator[] (I elm, I dim) const { return val(elm, dim); }
+        inline T  $$ operator() (I elm, I dim)       { return val(elm, dim); }
+        inline T c$$ operator() (I elm, I dim) const { return val(elm, dim); }
 
-        inline T c$$ operator[] (I elm, mpos dim)       { return val(elm, dim); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm, dim); }
+        inline T c$$ operator() (I elm, mpos dim)       { return val(elm, dim); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm, dim); }
     };
 
     struct tensor : public _var<T, I>
@@ -433,11 +449,11 @@ struct soa
         using storage = basic_var<N, T, I>;
         using mpos = typename storage::mpos;
 
-        inline T  $$ operator[] (I elm, I dim1, I dim2)       { return val(elm, addr::mpos2lin(dim1, dim2); }
-        inline T c$$ operator[] (I elm, I dim1, I dim2) const { return val(elm, addr::mpos2lin(dim1, dim2); }
+        inline T  $$ operator() (I elm, I dim1, I dim2)       { return val(elm, addr::mpos2lin(dim1, dim2)); }
+        inline T c$$ operator() (I elm, I dim1, I dim2) const { return val(elm, addr::mpos2lin(dim1, dim2)); }
 
-        inline T  $$ operator[] (I elm, mpos dim)       { return val(elm, addr::mpos2lin(dim); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm, addr::mpos2lin(dim); }
+        inline T  $$ operator() (I elm, mpos dim)       { return val(elm, addr::mpos2lin(dim)); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm, addr::mpos2lin(dim)); }
     };
 
     struct symtensor : public _var<T, I>
@@ -448,14 +464,12 @@ struct soa
         using storage = basic_var<N, T, I>;
         using mpos = typename storage::mpos;
 
-        inline T  $$ operator[] (I elm, I dim1, I dim2)       { return val(elm, addr::mpos2lin_sym(dim1, dim2); }
-        inline T c$$ operator[] (I elm, I dim1, I dim2) const { return val(elm, addr::mpos2lin_sym(dim1, dim2); }
+        inline T  $$ operator() (I elm, I dim1, I dim2)       { return val(elm, addr::mpos2lin_sym(dim1, dim2)); }
+        inline T c$$ operator() (I elm, I dim1, I dim2) const { return val(elm, addr::mpos2lin_sym(dim1, dim2)); }
 
-        inline T  $$ operator[] (I elm, mpos dim)       { return val(elm, addr::mpos2lin_sym(dim); }
-        inline T c$$ operator[] (I elm, mpos dim) const { return val(elm, addr::mpos2lin_sym(dim); }
+        inline T  $$ operator() (I elm, mpos dim)       { return val(elm, addr::mpos2lin_sym(dim)); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm, addr::mpos2lin_sym(dim)); }
     };
-
-
 
 };
 
@@ -495,24 +509,21 @@ struct adjlist
     adj_iter adj(I elm) const { return adj_iter(&m_adj[m_pos[elm]], &m_adj[m_pos[elm+1]]); }
 };
 
+
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
+
+namespace grid {
 
 template< class I >
 struct face_cell
 {
-    I left, I right
+    I left, right;
 };
 
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-namespace cartesian {
-
 template< class Storage >
-struct grid
+struct cartesian
 {
     C4_STORAGE_TYPES();
 
@@ -523,13 +534,8 @@ struct grid
     vector m_vert_coords;
 };
 
-} // namespace cartesian
-
-
-namespace unstructured {
-
 template< class Storage >
-struct grid
+struct unstructured
 {
     C4_STORAGE_TYPES();
 
@@ -553,9 +559,14 @@ struct grid
 
 };
 
-} // namespace unstructured
+} // namespace grid
 
 
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+namespace bnd {
 
 typedef enum
 {
@@ -572,56 +583,93 @@ struct BoundaryValues
 };
 
 
-template<int T, class I>
+template<class T, class I>
 struct Dirichlet : public BoundaryValues<T,I>
 {
 };
 
-template<int T, class I>
+template<class T, class I>
 struct Neumann : public BoundaryValues<T,I>
 {
 };
 
+template<class T, class I>
 struct MathBoundary
 {
     MathBoundaryType_e m_math_type;
     union {
-        Dirichlet m_dirichlet;
-        Neumann m_neumann;
+        Dirichlet<T,I> m_dirichlet;
+        Neumann<T,I> m_neumann;
     };
-}
+};
 
 typedef enum BoundaryType_e
 {
     WALL,
     INFLOW,
     OUTFLOW,
+    INTERIOR,
     CUSTOM
 } BoundaryType_e;
 
 
-template< class T, class I >
+template< class DependentVars >
 struct Boundary
 {
-    BoundaryType_e m_type;
-    MathBoundary   m_velocity;
-    MathBoundary   m_pressure;
+    using T = typename DependentVars::T;
+    using I = typename DependentVars::I;
+    using value_type = typename DependentVars::T;
+    using index_type = typename DependentVars::I;
+
+    BoundaryType_e       m_type;
+    MathBoundary<T, I>   m_velocity;
+    MathBoundary<T, I>   m_pressure;
 };
 
+} // namespace bnd
 
 
-template< class Grid >
-struct problem
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+template
+<
+    template<class> class DependentVars,
+    template<class> class Grid,
+    class Storage
+>
+struct problem : public DependentVars< Storage >
 {
-    using T = typename Grid::value_type;
+    C4_STORAGE_TYPES();
 
-    Grid grid;
+    using vars_type = DependentVars< Storage >;
+    using grid_type = Grid< Storage >;
+    using bnd_type = bnd::Boundary< DependentVars< Storage > >;
 
-    memblock<Boundary<T>, I> m_boundaries;
-
-    typename Grid::vector m_velocity;
-    typename Grid::scalar m_pressure;
+    Grid< Storage > m_grid;
+    memblock<bnd_type, I> m_boundaries;
 };
+
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+namespace dvars {
+
+template< class Storage >
+struct incompressible
+{
+    C4_STORAGE_TYPES();
+
+    vector m_velocity;
+    vector m_pressure;
+    T      m_mu;
+};
+
+} // namespace dvars
+
 
 } // namespace cfd
 } // namespace c4

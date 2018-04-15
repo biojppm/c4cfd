@@ -4,3 +4,6 @@
 [submodule "extern/petsc"]
 	path = extern/petsc
 	url = https://bitbucket.org/petsc/petsc
+[submodule "cmake"]
+	path = cmake
+	url = https://github.com/biojppm/cmake

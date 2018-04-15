@@ -11,8 +11,12 @@
 #include "c4/config.hpp"
 #include "c4/memory_resource.hpp"
 
-// utilities to tell the compiler the memory is SIMD-aligned
+#include <vector>
+
+
 namespace c4 {
+
+// utilities to tell the compiler the memory is SIMD-aligned
 
 /** @todo this assumes AVX512. Needs fix. */
 constexpr size_t get_simd_size()
@@ -609,6 +613,7 @@ typedef enum BoundaryType_e
     INFLOW,
     OUTFLOW,
     INTERIOR,
+    AMR,
     CUSTOM
 } BoundaryType_e;
 
@@ -670,6 +675,30 @@ struct incompressible
 
 } // namespace dvars
 
+
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+/** @namespace amr adaptive mesh refinement */
+namespace amr {
+
+template< class ProblemImpl >
+struct amr_problem_node
+{
+    ProblemImpl *m_parent;
+    std::vector< ProblemImpl > m_children;
+
+    amr_problem_node(ProblemImpl *parent_=nullptr) : m_parent(parent_), m_children() {}
+};
+
+template< class ProblemImpl >
+struct amr_problem
+{
+    amr_problem_node< ProblemImpl > m_root;
+};
+
+} // namespace amr
 
 } // namespace cfd
 } // namespace c4

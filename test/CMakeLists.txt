@@ -9,4 +9,4 @@ function(c4cfd_add_test name)
     c4_add_test(C4CFD c4cfd-test-${name} ON)
 endfunction(c4cfd_add_test)
 
-c4cfd_add_test(basic     basic.cpp)
+c4cfd_add_test(basic basic.cpp)

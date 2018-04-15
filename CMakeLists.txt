@@ -3,8 +3,6 @@ project(c4cfd)
 
 include(./cmake/c4Project.cmake)
 c4_declare_project(c4cfd)
-c4_require_module(c4cfd
-    c4core REMOTE GIT_REPOSITORY https://github.com/biojppm/c4core.git)
 
 set(C4CFD_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 

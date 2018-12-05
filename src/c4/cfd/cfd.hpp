@@ -221,7 +221,7 @@ inline vec<2,I> lin2rm(vec<2,I> p)
     return {p/N, p%N};
 }
 
-template< typename I, I N>
+template<typename I, I N>
 inline I cm2lin(I i, I j)
 {
     return (j * N) + i;
@@ -468,7 +468,7 @@ struct soa
         inline T c$$ operator() (I elm, I dim) const { return val(elm); }
 
         inline T  $$ operator() (I elm, mpos dim)       { return val(elm); }
-        inline T c$$ operator() (I elm, mpos dim) const { return v7al(elm); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm); }
     };
 
     struct vector : public _var<T, I>

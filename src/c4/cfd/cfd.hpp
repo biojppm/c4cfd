@@ -8,11 +8,17 @@
  * -cartesian and unstructured grids
  * */
 
-#include "c4/config.hpp"
-#include "c4/memory_resource.hpp"
-
 #include <vector>
 
+#include "c4/config.hpp"
+#include "c4/memory_resource.hpp"
+#include "c4/restrict.hpp"
+
+#ifdef __clang__
+#   pragma clang diagnostic push
+#   pragma clang diagnostic ignored "-Wdollar-in-identifier-extension"
+#elif defined(__GNUC__)
+#endif
 
 namespace c4 {
 
@@ -33,14 +39,6 @@ constexpr const size_t simd_alignment = get_simd_size(); ///< align for AVX512.
 #define C4_ASSUME_ALIGNED_OFFS(ptr, align, offs) __builtin_assume_aligned(ptr, align, offs)
 
 } // namespace c4
-
-
-// make all pointers restricted by default
-#define  $         * __restrict__ ///< a restricted pointer
-#define $$         & __restrict__ ///< a restricted reference
-#define c$   const * __restrict__ ///< a restricted const pointer
-#define c$$  const & __restrict__ ///< a restricted const reference
-
 
 
 namespace c4 {
@@ -102,7 +100,7 @@ struct vec : public vec_<N,T>
 
 
 /** @todo assert that T is memcpy-able */
-template< typename T, typename I=size_t >
+template<typename T, typename I=size_t>
 struct memblock
 {
     T $  m_val;
@@ -464,11 +462,11 @@ struct soa
         inline T  $$ operator() (I elm)       { return val(elm); }
         inline T c$$ operator() (I elm) const { return val(elm); }
 
-        inline T  $$ operator() (I elm, I dim)       { return val(elm); }
-        inline T c$$ operator() (I elm, I dim) const { return val(elm); }
+        inline T  $$ operator() (I elm, I dim)       { return val(elm, dim); }
+        inline T c$$ operator() (I elm, I dim) const { return val(elm, dim); }
 
-        inline T  $$ operator() (I elm, mpos dim)       { return val(elm); }
-        inline T c$$ operator() (I elm, mpos dim) const { return val(elm); }
+        inline T  $$ operator() (I elm, mpos dim)       { return val(elm, dim); }
+        inline T c$$ operator() (I elm, mpos dim) const { return val(elm, dim); }
     };
 
     struct vector : public _var<T, I>
@@ -558,8 +556,8 @@ struct adjlist
 
         adj_iter(I c$ b_, I c$ e_) : b(b_), e(e_) {}
 
-        I c$ begin() { return *b; }
-        I c$ end()   { return *e; }
+        I const& begin() { return *b; }
+        I const& end()   { return *e; }
     };
 
     adj_iter adj(I elm) const
@@ -775,5 +773,12 @@ struct amr_problem
 
 } // namespace cfd
 } // namespace c4
+
+#include "c4/unrestrict.hpp"
+
+#ifdef __clang__
+#   pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#endif
 
 #endif // _C4_CFD_HPP_

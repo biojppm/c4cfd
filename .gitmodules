@@ -1,8 +1,8 @@
 [submodule "extern/eigen"]
-	path = extern/eigen
+	path = ext/eigen
 	url = https://github.com/eigenteam/eigen-git-mirror
 [submodule "extern/petsc"]
-	path = extern/petsc
+	path = ext/petsc
 	url = https://bitbucket.org/petsc/petsc
 [submodule "cmake"]
 	path = cmake

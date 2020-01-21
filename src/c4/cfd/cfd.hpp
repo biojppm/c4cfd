@@ -168,10 +168,10 @@ struct memblock
 
 namespace detail {
 
-template< typename I, size_t N >
+template<typename I, size_t N>
 struct mat_addr_indices;
 
-template< typename I >
+template<typename I>
 struct mat_addr_indices<I, 1>
 {
     using mpos = I;
@@ -180,7 +180,7 @@ struct mat_addr_indices<I, 1>
     static constexpr const mpos s_lin2sym_cm[1] = {0};
 };
 
-template< typename I >
+template<typename I>
 struct mat_addr_indices<I, 2>
 {
     using mpos = vec<2,I>;
@@ -189,7 +189,7 @@ struct mat_addr_indices<I, 2>
     static constexpr const mpos s_lin2sym_cm[3] = {{0,0},{1,0},{1,1}};
 };
 
-template< typename I >
+template<typename I>
 struct mat_addr_indices<I, 3>
 {
     using mpos = vec<2,I>;
@@ -276,7 +276,6 @@ template<typename I, I N>
 struct col_major
 {
     using mpos = vec<2,I>;
-
     static inline I mpos2lin(I i, I j) { return cm2lin<I,N>(i, j); }
     static inline I mpos2lin(mpos i) { return cm2lin<I,N>(i.x, i.y); }
     static inline I mpos2lin_sym(I i, I j) { return sym2lin<I,N>(i, j); }
@@ -290,7 +289,7 @@ struct col_major
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< typename T=double, typename I=size_t >
+template<typename T=double, typename I=size_t>
 struct _var
 {
     using value_type = T;
@@ -303,12 +302,12 @@ struct _var
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< int N, typename T=double, typename I=size_t >
+template<int N, typename T=double, typename I=size_t>
 struct basic_var;
 
 
 /** scalar */
-template< typename T, typename I >
+template<typename T, typename I>
 struct basic_var<1,T,I>
 {
     memblock<T,I> m_val;
@@ -323,7 +322,7 @@ struct basic_var<1,T,I>
 };
 
 /** non-scalar */
-template< int N, typename T, typename I >
+template<int N, typename T, typename I>
 struct basic_var
 {
     memblock<T,I> m_val[N];
@@ -357,7 +356,7 @@ struct basic_var
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< int D, typename T=double, typename I=size_t >
+template<int D, typename T=double, typename I=size_t>
 struct aos
 {
     static constexpr const I num_dims = D;
@@ -444,7 +443,7 @@ struct aos
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< int D, typename T=double, typename I=size_t >
+template<int D, typename T=double, typename I=size_t>
 struct soa
 {
     static constexpr const I num_dims = D;
@@ -531,7 +530,7 @@ struct soa
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 
-template< typename I >
+template<typename I>
 struct adjlist
 {
 
@@ -574,13 +573,13 @@ struct adjlist
 
 namespace grid {
 
-template< class I >
+template<class I>
 struct face_cell
 {
     I left, right;
 };
 
-template< class Storage >
+template<class Storage>
 struct cartesian
 {
     C4_STORAGE_TYPES();
@@ -592,7 +591,7 @@ struct cartesian
     vector m_vert_coords;
 };
 
-template< class Storage >
+template<class Storage>
 struct unstructured
 {
     C4_STORAGE_TYPES();
@@ -676,7 +675,7 @@ typedef enum BoundaryType_e
 } BoundaryType_e;
 
 
-template< class DependentVars >
+template<class DependentVars>
 struct Boundary
 {
     using T = typename DependentVars::T;
@@ -702,15 +701,15 @@ template
     template<class> class Grid,
     class Storage
 >
-struct problem : public DependentVars< Storage >
+struct problem : public DependentVars<Storage>
 {
     C4_STORAGE_TYPES();
 
-    using vars_type = DependentVars< Storage >;
-    using grid_type = Grid< Storage >;
-    using bnd_type = bnd::Boundary< DependentVars< Storage > >;
+    using vars_type = DependentVars<Storage>;
+    using grid_type = Grid<Storage>;
+    using bnd_type = bnd::Boundary<DependentVars<Storage>>;
 
-    Grid< Storage > m_grid;
+    Grid<Storage> m_grid;
     memblock<bnd_type, I> m_boundaries;
 };
 
@@ -754,19 +753,19 @@ struct compressible
 /** @namespace amr adaptive mesh refinement */
 namespace amr {
 
-template< class ProblemImpl >
+template<class ProblemImpl>
 struct amr_problem_node
 {
     ProblemImpl *m_parent;
-    std::vector< ProblemImpl > m_children;
+    std::vector<ProblemImpl> m_children;
 
     amr_problem_node(ProblemImpl *parent_=nullptr) : m_parent(parent_), m_children() {}
 };
 
-template< class ProblemImpl >
+template<class ProblemImpl>
 struct amr_problem
 {
-    amr_problem_node< ProblemImpl > m_root;
+    amr_problem_node<ProblemImpl> m_root;
 };
 
 } // namespace amr

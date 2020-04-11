@@ -89,8 +89,8 @@ struct vec_<4,T>
 template<int N, typename T>
 struct vec : public vec_<N,T>
 {
-    template <class I> T  $$ operator[] (I i)       { C4_XASSERT(i >= 0 && i < N); return this->data[N]; }
-    template <class I> T c$$ operator[] (I i) const { C4_XASSERT(i >= 0 && i < N); return this->data[N]; }
+    template <class I> T  $$ operator[] (I i)       { C4_XASSERT(i >= 0 && i < N); return this->data[i]; }
+    template <class I> T c$$ operator[] (I i) const { C4_XASSERT(i >= 0 && i < N); return this->data[i]; }
 };
 
 
@@ -374,11 +374,11 @@ struct aos
         inline T  $$ operator() (I elm)       { return val(elm); }
         inline T c$$ operator() (I elm) const { return val(elm); }
 
-        inline T  $$ operator() (I elm, I dim)       { C4_XASSERT(dim == 0); return val(elm); }
-        inline T c$$ operator() (I elm, I dim) const { C4_XASSERT(dim == 0); return val(elm); }
+        inline T  $$ operator() (I elm, I dim)       { C4_XASSERT(dim == 0); C4_UNUSED(dim); return val(elm); }
+        inline T c$$ operator() (I elm, I dim) const { C4_XASSERT(dim == 0); C4_UNUSED(dim); return val(elm); }
 
-        inline T  $$ operator() (I elm, mpos dim)       { C4_XASSERT(dim.x == 0); return val(elm); }
-        inline T c$$ operator() (I elm, mpos dim) const { C4_XASSERT(dim.x == 0); return val(elm); }
+        inline T  $$ operator() (I elm, mpos dim)       { C4_XASSERT(dim.x == 0); C4_UNUSED(dim); return val(elm); }
+        inline T c$$ operator() (I elm, mpos dim) const { C4_XASSERT(dim.x == 0); C4_UNUSED(dim); return val(elm); }
     };
 
     struct vector : public _var<T, I>
